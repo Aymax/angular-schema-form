@@ -19,7 +19,6 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
       link: function(scope, element, attrs, ngModel) {
         var formDefCache = {};
 
-        scope.validateArray = angular.noop;
 
         if (ngModel) {
           // We need the ngModelController on several places,
@@ -42,8 +41,9 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
           // We only modify the same array instance but someone might change the array from
           // the outside so let's watch for that. We use an ordinary watch since the only case
           // we're really interested in is if its a new instance.
-          scope.$watch('model' + sfPath.normalize(form.key), function(value) {
-            list = scope.modelArray = value;
+          scope.$watch('model' + sfPath.normalize(form.key), function() {
+            list = sfSelect(form.key, scope.model);
+            scope.modelArray = list;
           });
 
           // Since ng-model happily creates objects in a deep path when setting a
@@ -126,7 +126,9 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
             }
 
             // Trigger validation.
-            scope.validateArray();
+            if (scope.validateArray) {
+              scope.validateArray();
+            }
             return list;
           };
 
@@ -134,7 +136,9 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
             list.splice(index, 1);
 
             // Trigger validation.
-            scope.validateArray();
+            if (scope.validateArray) {
+              scope.validateArray();
+            }
 
             // Angular 1.2 lacks setDirty
             if (ngModel && ngModel.$setDirty) {
@@ -168,14 +172,15 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
               form.titleMap.forEach(function(item) {
                 scope.titleMapValues.push(arr.indexOf(item.value) !== -1);
               });
+
             };
             //Catch default values
             updateTitleMapValues(scope.modelArray);
             scope.$watchCollection('modelArray', updateTitleMapValues);
 
             //To get two way binding we also watch our titleMapValues
-            scope.$watchCollection('titleMapValues', function(vals, old) {
-              if (vals && vals !== old) {
+            scope.$watchCollection('titleMapValues', function(vals) {
+              if (vals) {
                 var arr = scope.modelArray;
 
                 // Apparently the fastest way to clear an array, readable too.
@@ -183,14 +188,13 @@ angular.module('schemaForm').directive('sfArray', ['sfSelect', 'schemaForm', 'sf
                 while (arr.length > 0) {
                   arr.pop();
                 }
+
                 form.titleMap.forEach(function(item, index) {
                   if (vals[index]) {
                     arr.push(item.value);
                   }
                 });
 
-                // Time to validate the rebuilt array.
-                scope.validateArray();
               }
             });
           }
